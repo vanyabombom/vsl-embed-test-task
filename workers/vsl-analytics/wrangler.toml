@@ -5,4 +5,4 @@ compatibility_date = "2024-12-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "vsl-analytics"
-database_id = "" # Fill in after: wrangler d1 create vsl-analytics
+database_id = "fc39bba0-ae98-49b2-b3ff-6ae21f4ff7ad"

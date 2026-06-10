@@ -6,7 +6,8 @@ import { VslPlayer } from "@/components/VslPlayer";
 const TEST_VIDEO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"; // public HLS test stream
 
 // Will be set after deploying the Cloudflare Worker — e.g. https://vsl-analytics.<sub>.workers.dev
-const ANALYTICS_URL = "";
+const ANALYTICS_URL = "https://vsl-analytics.dndv.workers.dev";
+
 
 export function VslTestPageContent() {
   return (
@@ -50,6 +51,7 @@ export function VslTestPageContent() {
             src={TEST_VIDEO_URL}
             videoId="test-vsl"
             analyticsUrl={ANALYTICS_URL || undefined}
+            poster="https://image.mux.com/x36xhzz/thumbnail.jpg?time=0"
           />
         </div>
       </section>
