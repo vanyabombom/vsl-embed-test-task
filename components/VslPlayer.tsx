@@ -683,7 +683,7 @@ export const VslPlayer = memo(function VslPlayer({
         </button>
       )}
 
-      {playing && !showPlayButton && (
+      {isFullscreen && !showPlayButton && (
         <div className="vsl-controls">
           <button
             onClick={(e) => {

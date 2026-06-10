@@ -3,7 +3,7 @@
 import { VslPlayer } from "@/components/VslPlayer";
 
 // Replace this with your actual Bunny.net HLS URL after uploading a test video
-const TEST_VIDEO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"; // public HLS test stream
+const TEST_VIDEO_URL = "https://vz-8f003adf-6fd.b-cdn.net/e6212776-a0fb-4423-9f47-c4c077cd84cb/playlist.m3u8";
 
 // Will be set after deploying the Cloudflare Worker — e.g. https://vsl-analytics.<sub>.workers.dev
 const ANALYTICS_URL = "https://vsl-analytics.dndv.workers.dev";
@@ -49,9 +49,9 @@ export function VslTestPageContent() {
         <div className="video-container">
           <VslPlayer
             src={TEST_VIDEO_URL}
-            videoId="test-vsl"
+            videoId="e6212776-a0fb-4423-9f47-c4c077cd84cb"
             analyticsUrl={ANALYTICS_URL || undefined}
-            poster="https://image.mux.com/x36xhzz/thumbnail.jpg?time=0"
+            poster="https://vz-8f003adf-6fd.b-cdn.net/e6212776-a0fb-4423-9f47-c4c077cd84cb/thumbnail.jpg"
           />
         </div>
       </section>
