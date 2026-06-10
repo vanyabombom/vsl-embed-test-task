@@ -1,0 +1,8 @@
+name = "vsl-analytics"
+main = "worker.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vsl-analytics"
+database_id = "" # Fill in after: wrangler d1 create vsl-analytics
