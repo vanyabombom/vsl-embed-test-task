@@ -8,6 +8,21 @@ import {
   memo,
   type RefObject,
 } from "react";
+import { 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  Volume2, 
+  VolumeX, 
+  Settings, 
+  Maximize, 
+  SlidersHorizontal, 
+  FastForward, 
+  ChevronRight,
+  Minimize,
+  ChevronLeft,
+  Check
+} from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -116,6 +131,52 @@ export const VslPlayer = memo(function VslPlayer({
   const [playing, setPlaying] = useState(false);
   const [nativeHijacked, setNativeHijacked] = useState(false);
 
+  // --- UI State ---
+  const [showControls, setShowControls] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsView, setSettingsView] = useState<"main" | "speed" | "quality">("main");
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [qualities, setQualities] = useState<{ index: number; name: string }[]>([]);
+  const [currentQualityIndex, setCurrentQualityIndex] = useState<number>(-1);
+  const [mockQuality, setMockQuality] = useState<string>("Auto");
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInteract = useCallback(() => {
+    setShowControls(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+      setShowSettings(false);
+      setSettingsView("main");
+    }, 3000);
+  }, []);
+
+  const handleSetSpeed = useCallback((rate: number) => {
+    const video = videoRef.current;
+    if (video) {
+      video.playbackRate = rate;
+      setPlaybackRate(rate);
+    }
+    setSettingsView("main");
+    setShowSettings(false);
+  }, []);
+
+  const handleSetQuality = useCallback((index: number) => {
+    const hls = hlsRef.current as any;
+    if (hls) {
+      hls.currentLevel = index;
+      setCurrentQualityIndex(index);
+    }
+    setSettingsView("main");
+    setShowSettings(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
   /* ================================================================ */
   /*  safePlay — single entry point for ALL .play() calls             */
   /* ================================================================ */
@@ -202,7 +263,7 @@ export const VslPlayer = memo(function VslPlayer({
 
     video.muted = false;
     setMuted(false);
-    
+
     // We optimistically set phase, but safePlay might fail.
     // If it fails with NotAllowedError, we show play button, which handles manual play.
     tapPhaseRef.current = "playing";
@@ -265,23 +326,45 @@ export const VslPlayer = memo(function VslPlayer({
     let destroyed = false;
     const isHlsSource = src.includes(".m3u8");
 
-    if (isHlsSource && canPlayNativeHls()) {
-      video.src = src;
-    } else if (isHlsSource) {
+    if (isHlsSource) {
       import("hls.js")
         .then(({ default: Hls }) => {
           if (destroyed || !mountedRef.current) return;
-          if (!Hls.isSupported()) {
+          if (Hls.isSupported()) {
+            const hls = new Hls({ startLevel: -1 });
+            hlsRef.current = hls;
+
+            hls.on(Hls.Events.MANIFEST_PARSED, (_: any, data: any) => {
+              if (!mountedRef.current) return;
+              const levels = data.levels
+                .map((l: any, idx: number) => {
+                  const shortEdge = Math.min(l.width || 0, l.height || 0) || Math.max(l.width || 0, l.height || 0);
+                  return { index: idx, shortEdge, height: l.height || 0 };
+                })
+                .sort((a: any, b: any) => b.height - a.height)
+                .map((l: any) => ({ index: l.index, name: l.shortEdge ? `${l.shortEdge}p` : `Level ${l.index}` }));
+              setQualities(levels);
+            });
+
+            hls.on(Hls.Events.LEVEL_SWITCHED, (_: any, data: any) => {
+              if (!mountedRef.current) return;
+              if (hls.autoLevelEnabled) {
+                setCurrentQualityIndex(-1);
+              } else {
+                setCurrentQualityIndex(data.level);
+              }
+            });
+
+            hls.loadSource(src);
+            hls.attachMedia(video);
+          } else if (canPlayNativeHls()) {
             video.src = src;
-            return;
           }
-          const hls = new Hls({ startLevel: -1 });
-          hlsRef.current = hls;
-          hls.loadSource(src);
-          hls.attachMedia(video);
         })
         .catch(() => {
-          if (!destroyed && mountedRef.current) video.src = src;
+          if (!destroyed && mountedRef.current && canPlayNativeHls()) {
+            video.src = src;
+          }
         });
     } else {
       video.src = src;
@@ -449,7 +532,7 @@ export const VslPlayer = memo(function VslPlayer({
 
     const scrollY = window.scrollY;
     const { body } = document;
-    
+
     // Cache original styles before overwriting
     const origPosition = body.style.position;
     const origTop = body.style.top;
@@ -589,6 +672,25 @@ export const VslPlayer = memo(function VslPlayer({
     }
   }, [safePlay, safePause]);
 
+  const toggleMute = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.muted = !video.muted;
+      setMuted(video.muted);
+    }
+  }, []);
+
+  const handleRewind15 = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = Math.max(0, video.currentTime - 15);
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev);
+  }, []);
+
   /* ================================================================ */
   /*  Render                                                           */
   /* ================================================================ */
@@ -625,6 +727,9 @@ export const VslPlayer = memo(function VslPlayer({
     <div
       ref={containerRef}
       onClick={handleVideoClick}
+      onMouseMove={handleInteract}
+      onTouchStart={handleInteract}
+      onMouseLeave={() => setShowControls(false)}
       className={isFullscreen ? "vsl-container vsl-fullscreen" : "vsl-container"}
     >
       <video
@@ -659,52 +764,158 @@ export const VslPlayer = memo(function VslPlayer({
         </button>
       )}
 
-      {muted && playing && (
-        <button
+      {muted && playing && !isFullscreen && (
+        <div 
+          className="vsl-unmute-overlay control-btn" 
           onClick={(e) => {
             e.stopPropagation();
             handleUnmute();
           }}
-          className="vsl-unmute-banner"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-          >
-            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-            <line x1="23" y1="9" x2="17" y2="15" />
-            <line x1="17" y1="9" x2="23" y2="15" />
-          </svg>
-          Tap to unmute
-        </button>
+          <Volume2 size={48} color="white" strokeWidth={1.5} />
+          <div className="vsl-unmute-text">
+            <strong>Your Video Is Playing</strong>
+            <span>Click To Unmute</span>
+          </div>
+        </div>
       )}
 
-      {isFullscreen && !showPlayButton && (
-        <div className="vsl-controls">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePlay();
-            }}
-            aria-label={playing ? "Pause" : "Play"}
-            className="vsl-toggle-btn"
-          >
-            {playing ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </button>
+      {!showPlayButton && (
+        <div className={`vsl-controls-container ${showControls || showSettings ? 'visible' : ''}`}>
           <ProgressBar videoRef={videoRef} />
+
+          <div className="vsl-controls-row">
+            <div className="vsl-pill">
+              <button className="vsl-btn control-btn" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+                {playing ? <Pause size={18} color="white" fill="white" /> : <Play size={18} color="white" fill="white" />}
+              </button>
+              <button className="vsl-btn control-btn" style={{ position: "relative" }} onClick={(e) => { e.stopPropagation(); handleRewind15(); }}>
+                <RotateCcw size={20} color="white" strokeWidth={2.5} />
+                <span style={{ position: "absolute", fontSize: "8px", fontWeight: "bold", color: "white", top: "50%", left: "50%", transform: "translate(-50%, -50%)", marginTop: "1px" }}>15</span>
+              </button>
+              <button className="vsl-btn control-btn" onClick={(e) => { e.stopPropagation(); toggleMute(); }}>
+                {muted ? <VolumeX size={18} color="white" /> : <Volume2 size={18} color="white" />}
+              </button>
+            </div>
+
+            <div className="vsl-controls-right">
+              <div className="vsl-settings-wrapper">
+                {showSettings && (
+                  <div className="vsl-settings-menu">
+                    {settingsView === "main" && (
+                      <div style={{ padding: "8px 0" }}>
+                        <div className="vsl-settings-item control-btn" onClick={(e) => { e.stopPropagation(); setSettingsView("quality"); }}>
+                          <div className="vsl-settings-item-left">
+                            <SlidersHorizontal size={16} color="white" />
+                            <span>Quality</span>
+                          </div>
+                          <div className="vsl-settings-item-right">
+                            <span>{qualities.length > 0 ? (currentQualityIndex === -1 ? "Auto" : qualities.find(q => q.index === currentQualityIndex)?.name || "Auto") : mockQuality}</span>
+                            <ChevronRight size={16} color="white" />
+                          </div>
+                        </div>
+                        <div className="vsl-settings-item control-btn" onClick={(e) => { e.stopPropagation(); setSettingsView("speed"); }}>
+                          <div className="vsl-settings-item-left">
+                            <FastForward size={16} color="white" fill="white" />
+                            <span>Speed</span>
+                          </div>
+                          <div className="vsl-settings-item-right">
+                            <span>{playbackRate === 1 ? "Normal" : `${playbackRate}x`}</span>
+                            <ChevronRight size={16} color="white" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {settingsView === "speed" && (
+                      <>
+                        <div className="vsl-settings-header control-btn" onClick={(e) => { e.stopPropagation(); }}>
+                          <button className="vsl-settings-back control-btn" onClick={(e) => { e.stopPropagation(); setSettingsView("main"); }}>
+                            <ChevronLeft size={18} color="white" />
+                          </button>
+                          <span className="vsl-settings-title">Speed</span>
+                        </div>
+                        <div className="vsl-settings-options">
+                          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                            <div 
+                              key={rate} 
+                              className={`vsl-settings-option control-btn ${playbackRate === rate ? 'active' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); handleSetSpeed(rate); }}
+                            >
+                              <span>{rate === 1 ? "Normal" : `${rate}x`}</span>
+                              {playbackRate === rate && <Check size={16} color="white" />}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {settingsView === "quality" && (
+                      <>
+                        <div className="vsl-settings-header control-btn" onClick={(e) => { e.stopPropagation(); }}>
+                          <button className="vsl-settings-back control-btn" onClick={(e) => { e.stopPropagation(); setSettingsView("main"); }}>
+                            <ChevronLeft size={18} color="white" />
+                          </button>
+                          <span className="vsl-settings-title">Quality</span>
+                        </div>
+                        <div className="vsl-settings-options">
+                          <div 
+                            className={`vsl-settings-option control-btn ${qualities.length > 0 ? (currentQualityIndex === -1 ? 'active' : '') : (mockQuality === 'Auto' ? 'active' : '')}`}
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (qualities.length > 0) handleSetQuality(-1); 
+                              else { setMockQuality('Auto'); setSettingsView("main"); setShowSettings(false); }
+                            }}
+                          >
+                            <span>Auto</span>
+                            {(qualities.length > 0 ? currentQualityIndex === -1 : mockQuality === 'Auto') && <Check size={16} color="white" />}
+                          </div>
+                          {qualities.length > 0 ? qualities.map((q) => (
+                            <div 
+                              key={q.index} 
+                              className={`vsl-settings-option control-btn ${currentQualityIndex === q.index ? 'active' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); handleSetQuality(q.index); }}
+                            >
+                              <span>{q.name}</span>
+                              {currentQualityIndex === q.index && <Check size={16} color="white" />}
+                            </div>
+                          )) : (
+                            ['1080p', '720p', '360p', '270p'].map((q) => (
+                              <div 
+                                key={q} 
+                                className={`vsl-settings-option control-btn ${mockQuality === q ? 'active' : ''}`}
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setMockQuality(q);
+                                  setSettingsView("main"); 
+                                  setShowSettings(false); 
+                                }}
+                              >
+                                <span>{q}</span>
+                                {mockQuality === q && <Check size={16} color="white" />}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                <div className="vsl-pill">
+                  <button className={`vsl-btn control-btn ${showSettings ? 'active' : ''}`} onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if (!showSettings) setSettingsView("main");
+                    setShowSettings(!showSettings); 
+                  }}>
+                    <Settings size={18} color="white" />
+                  </button>
+                  <button className="vsl-btn control-btn" onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}>
+                    {isFullscreen ? <Minimize size={18} color="white" /> : <Maximize size={18} color="white" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -732,12 +943,26 @@ function ProgressBar({
     return () => video.removeEventListener("timeupdate", update);
   }, [videoRef]);
 
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration)) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    video.currentTime = pos * video.duration;
+  }, [videoRef]);
+
   return (
-    <div className="vsl-progress-track">
-      <div
-        className="vsl-progress-fill"
-        style={{ width: `${progress}%` }}
-      />
+    <div 
+      className="vsl-progress-wrapper control-btn" 
+      onClick={handleSeek}
+    >
+      <div className="vsl-progress-track">
+        <div
+          className="vsl-progress-fill"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }
