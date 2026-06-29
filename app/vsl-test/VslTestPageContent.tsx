@@ -3,7 +3,7 @@
 import { VslPlayer } from "@/components/VslPlayer";
 
 // Replace this with your actual Bunny.net HLS URL after uploading a test video
-const TEST_VIDEO_URL = "https://vz-8f003adf-6fd.b-cdn.net/e6212776-a0fb-4423-9f47-c4c077cd84cb/playlist.m3u8";
+const TEST_VIDEO_URL = "https://vz-b8113f7b-612.b-cdn.net/7f8d9851-43cc-4e2e-a684-3b8567ea0113/playlist.m3u8";
 
 // Will be set after deploying the Cloudflare Worker — e.g. https://vsl-analytics.<sub>.workers.dev
 const ANALYTICS_URL = "https://vsl-analytics.dndv.workers.dev";

@@ -749,21 +749,6 @@ export const VslPlayer = memo(function VslPlayer({
         onMouseDown={(e) => e.preventDefault()}
       />
 
-      {showPlayButton && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleManualPlay();
-          }}
-          aria-label="Play video"
-          className="vsl-play-btn"
-        >
-          <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
-            <path d="M4 2L26 16L4 30V2Z" fill="white" />
-          </svg>
-        </button>
-      )}
-
       {muted && playing && !isFullscreen && (
         <div 
           className="vsl-unmute-overlay control-btn" 
@@ -780,8 +765,7 @@ export const VslPlayer = memo(function VslPlayer({
         </div>
       )}
 
-      {!showPlayButton && (
-        <div className={`vsl-controls-container ${showControls || showSettings ? 'visible' : ''}`}>
+      <div className={`vsl-controls-container ${showControls || showSettings ? 'visible' : ''}`}>
           <ProgressBar videoRef={videoRef} />
 
           <div className="vsl-controls-row">
@@ -917,7 +901,6 @@ export const VslPlayer = memo(function VslPlayer({
             </div>
           </div>
         </div>
-      )}
     </div>
   );
 });
